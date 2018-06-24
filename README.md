@@ -1,3 +1,6 @@
+
+This is a WIP, and I'm learning Git/GitHub, so this might dis-appear at any moment, while I get comfortable with the whole thing. The code in reference is not by me.
+
 # General Purpose GOAP
 
 ## Introduction
@@ -60,103 +63,62 @@ If we follow this plan, we have the unfortunate side effect that not only our en
 
 The entire scenario described above is implemented succinctly in these few lines of code:
 
-	#include "goap.h"
-	#include "astar.h"
 
-	actionplanner_t ap;
-	goap_actionplanner_clear( &ap ); // initializes action planner
+#include "goappp.hpp"
 
-	// describe repertoire of actions
-	goap_set_pre( &ap, "scout", "armedwithgun", true );
-	goap_set_pst( &ap, "scout", "enemyvisible", true );
 
-	goap_set_pre( &ap, "approach", "enemyvisible", true );
-	goap_set_pst( &ap, "approach", "nearenemy", true );
+int __cdecl main ( ) {
 
-	goap_set_pre( &ap, "aim", "enemyvisible", true );
-	goap_set_pre( &ap, "aim", "weaponloaded", true );
-	goap_set_pst( &ap, "aim", "enemylinedup", true );
+    planner<std::uint16_t> ap;
 
-	goap_set_pre( &ap, "shoot", "enemylinedup", true );
-	goap_set_pst( &ap, "shoot", "enemyalive", false );
+    ap.action_ante ( "scout", "armedwithgun", true );
+    ap.action_post ( "scout", "enemyvisible", true );
 
-	goap_set_pre( &ap, "load", "armedwithgun", true );
-	goap_set_pst( &ap, "load", "weaponloaded", true );
+    ap.action_ante ( "approach", "enemyvisible", true );
+    ap.action_post ( "approach", "nearenemy", true );
 
-	goap_set_pre( &ap, "detonatebomb", "armedwithbomb", true );
-	goap_set_pre( &ap, "detonatebomb", "nearenemy", true );
-	goap_set_pst( &ap, "detonatebomb", "alive", false );
-	goap_set_pst( &ap, "detonatebomb", "enemyalive", false );
+    ap.action_ante ( "aim", "enemyvisible", true );
+    ap.action_ante ( "aim", "weaponloaded", true );
+    ap.action_post ( "aim", "enemylinedup", true );
 
-	goap_set_pre( &ap, "flee", "enemyvisible", true );
-	goap_set_pst( &ap, "flee", "nearenemy", false );
+    ap.action_ante ( "shoot", "enemylinedup", true );
+    ap.action_post ( "shoot", "enemyalive", false );
 
-	// describe current world state.
-	worldstate_t fr; 
-	goap_worldstate_clear( &fr );
-	goap_worldstate_set( &ap, &fr, "enemyvisible", false );
-	goap_worldstate_set( &ap, &fr, "armedwithgun", true );
-	goap_worldstate_set( &ap, &fr, "weaponloaded", false );
-	goap_worldstate_set( &ap, &fr, "enemylinedup", false );
-	goap_worldstate_set( &ap, &fr, "enemyalive", true );
-	goap_worldstate_set( &ap, &fr, "armedwithbomb", true );
-	goap_worldstate_set( &ap, &fr, "nearenemy", false );
-	goap_worldstate_set( &ap, &fr, "alive", true );
+    ap.action_ante ( "load", "enemyvisible", true );
+    ap.action_ante ( "load", "armedwithgun", true );
+    ap.action_post ( "load", "weaponloaded", true );
 
-	// describe desired world state.
-	worldstate_t goal;
-	goap_worldstate_clear( &goal );
-	goap_worldstate_set( &ap, &goal, "enemyalive", false );
-	//goap_worldstate_set( &ap, &goal, "alive", true ); // add this to avoid suicide actions in the plan.
+    ap.action_ante ( "detonatebomb", "armedwithbomb", true );
+    ap.action_ante ( "detonatebomb", "nearenemy", true );
+    ap.action_post ( "detonatebomb", "alive", false );
+    ap.action_post ( "detonatebomb", "enemyalive", false );
 
-	worldstate_t states[16];
-	const char* plan[16]; // The planner will return the action plan in this array.
-	int plansz=16; // Size of our return buffers.
-	const int plancost = astar_plan( &ap, fr, goal, plan, states, &plansz );
+    ap.action_ante ( "flee", "enemyvisible", true );
+    ap.action_post ( "flee", "nearenemy", false );
 
-And that is it. The plan's size will be returned in *plansz* which is not necessarily the same as the plan cost. You can access the *plan* array elements for the actual steps (actions). For each action in the plan, the resulting world state is also available in the *states* array.
+    ap.action_cost ( "detonatebomb", cost_type { 5 } );
 
-## Implementation Notes
+    ap.current_world ( "enemyvisible", false );
+    ap.current_world ( "armedwithgun", true );
+    ap.current_world ( "weaponloaded", false );
+    ap.current_world ( "enemylinedup", false );
+    ap.current_world ( "enemyalive", true );
+    ap.current_world ( "armedwithbomb", true );
+    ap.current_world ( "nearenemy", false );
+    ap.current_world ( "alive", true );
 
-To build, use a C99 compliant C compiler. You can invoke with: `$ gcc -std=c99 astar.c goap.c main.c`
+    ap.target_attributes ( "enemyalive", false );
+    ap.target_attributes ( "alive", true );
 
-The strength of GPGOAP is that the API is very generic: both world state and actions are solely described with C strings and booleans. No game specific enums end up in the API. With this power comes responsibility: do not make typos in the action names or atom names. They will end up representing different atoms if you do.
+    ap.print_actions ( );
+    ap.print_current_world ( ); std::cout << nl;
+    ap.print_target_attributes ( ); std::cout << nl;
 
-For performance, all the tags for the world state atoms are converted to an entry in a bit field. This bit field is implemented as a 'long long int', which typically is 8 bytes or 64 bits. This means that you cannot use more than 64 atoms to describe the world and the actions to the planner. When using multiple NPCs in your game, I suggest using separate planners for them, so that if two NPCs have different action sets, you don't end up combining their atom name space and exceeding 64 tags.
+    ap.plan ( );
 
-The only atom type supported is boolean. This means that scalars cannot be used to describe the world. I advice splitting up a scalar value with multiple booleans. E.g. fuelempy, fuellow, fuelfull to encode a single scalar fuel value.
-
-I strongly advice using lowercase names for the world state atoms. I have provided a debug function that will return a string representation of a world state that you can print out. In this representation, lowercase is used for false valued atoms, and uppercase is used for true valued atoms.
+    return 0;
+}
 
 ## Bugs
 
-No known bugs.
-
-## Files
-
-* **goap.h goap.c** implements the planner.
-* **astar.h astar.c** implements A* search over the world state space.
-* **main.c** sample scenario.
-
-goap and astar are codependent unfortunately. Keeping them in separate files makes sense though, as they address two distinct parts of the system.
-
-## Thanks
-
-* Thank you Amit Patel for [describing](http://theory.stanford.edu/~amitp/GameProgramming/ImplementationNotes.html) A* search so succinctly.
-* Thank you Jeff Orkin for the origins of GOAP.
-
-## License
-
-Copyright 2012 [Abraham T. Stolk](http://stolk.org)
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-   [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
+Always.
