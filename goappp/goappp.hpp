@@ -27,82 +27,48 @@
 #include "sorted_vector_set.hpp"
 
 
-
 template <typename T>
-class allocator {
-    public:
+struct relocator {
+
     using value_type = T;
+    using pointer = value_type*;
 
-    //     using pointer       = value_type*;
-    //     using const_pointer = typename std::pointer_traits<pointer>::template
-    //                                                     rebind<value_type const>;
-    //     using void_pointer       = typename std::pointer_traits<pointer>::template
-    //                                                           rebind<void>;
-    //     using const_void_pointer = typename std::pointer_traits<pointer>::template
-    //                                                           rebind<const void>;
+    template <class U> struct rebind {typedef relocator<U> other;};
 
-    //     using difference_type = typename std::pointer_traits<pointer>::difference_type;
-    //     using size_type       = std::make_unsigned_t<difference_type>;
+    relocator ( ) noexcept { }  // not required, unless used
+    ~relocator ( ) noexcept {
+        std::cout << "freed " << m_pointer << nl;
+        std::free ( m_pointer );
+    }
+    template <class U> relocator ( relocator<U> const & ) noexcept { }
 
-    //     template <class U> struct rebind {typedef allocator<U> other;};
-
-    allocator ( ) noexcept { }  // not required, unless used
-    template <class U> allocator ( allocator<U> const & ) noexcept { }
-
-    value_type*  // Use pointer if pointer is not a value_type*
-        allocate ( std::size_t n ) {
-        return static_cast<value_type*>( ::operator new ( n * sizeof ( value_type ) ) );
+    pointer allocate ( std::size_t n ) {
+        if ( m_pointer ) {
+            pointer p = m_pointer;
+            m_pointer = static_cast< pointer > ( std::realloc ( m_pointer, n * sizeof ( T ) ) );
+            std::cout << "realloced " << p << " to " << m_pointer << nl;
+        }
+        else {
+            m_pointer = static_cast< pointer > ( std::malloc ( n * sizeof ( T ) ) );
+            std::cout << "malloced " << m_pointer << nl;
+        }
+        return m_pointer;
     }
 
-    void deallocate ( value_type* p, std::size_t ) noexcept { // Use pointer if pointer is not a value_type*
-        ::operator delete ( p );
-    }
+    void deallocate ( pointer p, std::size_t ) noexcept { }
 
-    //     value_type*
-    //     allocate(std::size_t n, const_void_pointer)
-    //     {
-    //         return allocate(n);
-    //     }
+    private:
 
-    //     template <class U, class ...Args>
-    //     void
-    //     construct(U* p, Args&& ...args)
-    //     {
-    //         ::new(p) U(std::forward<Args>(args)...);
-    //     }
-
-    //     template <class U>
-    //     void
-    //     destroy(U* p) noexcept
-    //     {
-    //         p->~U();
-    //     }
-
-    //     std::size_t
-    //     max_size() const noexcept
-    //     {
-    //         return std::numeric_limits<size_type>::max();
-    //     }
-
-    //     allocator
-    //     select_on_container_copy_construction() const
-    //     {
-    //         return *this;
-    //     }
-
-    //     using propagate_on_container_copy_assignment = std::false_type;
-    //     using propagate_on_container_move_assignment = std::false_type;
-    //     using propagate_on_container_swap            = std::false_type;
-    //     using is_always_equal                        = std::is_empty<allocator>;
+    pointer m_pointer = nullptr;
 };
 
 template <class T, class U>
-bool operator == ( allocator<T> const&, allocator<U> const& ) noexcept {
+bool operator == ( relocator<T> const&, relocator<U> const& ) noexcept {
     return true;
 }
 
 template <class T, class U>
-bool operator != ( allocator<T> const& x, allocator<U> const& y ) noexcept {
+bool operator != ( relocator<T> const& x, relocator<U> const& y ) noexcept {
     return not ( x == y );
 }
 

@@ -20,8 +20,32 @@
 
 #include "goappp.hpp"
 
+using int_vector = std::vector<int, relocator<int>>;
 
 int __cdecl main ( ) {
+
+    std::cout << "enter scope" << nl;
+
+    {
+        int_vector v1;
+
+        for ( int i = 0; i < 20000; ++i ) {
+            v1.push_back ( i );
+            std::cout << "pushed " << i << nl;
+        }
+
+        for ( auto i : v1 ) {
+            std::cout << i << nl;
+        }
+    }
+
+    std::cout << "out of scope" << nl;
+
+    return 0;
+};
+
+
+int __cdecl main233546576 ( ) {
 
     {
 
