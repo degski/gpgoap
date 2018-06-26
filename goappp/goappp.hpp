@@ -26,53 +26,6 @@
 
 #include "sorted_vector_set.hpp"
 
-
-template <typename T>
-struct relocator {
-
-    using value_type = T;
-    using pointer = value_type*;
-
-    template <class U> struct rebind {typedef relocator<U> other;};
-
-    relocator ( ) noexcept { }  // not required, unless used
-    ~relocator ( ) noexcept {
-        std::cout << "freed " << m_pointer << nl;
-        std::free ( m_pointer );
-    }
-    template <class U> relocator ( relocator<U> const & ) noexcept { }
-
-    pointer allocate ( std::size_t n ) {
-        if ( m_pointer ) {
-            pointer p = m_pointer;
-            m_pointer = static_cast< pointer > ( std::realloc ( m_pointer, n * sizeof ( T ) ) );
-            std::cout << "realloced " << p << " to " << m_pointer << nl;
-        }
-        else {
-            m_pointer = static_cast< pointer > ( std::malloc ( n * sizeof ( T ) ) );
-            std::cout << "malloced " << m_pointer << nl;
-        }
-        return m_pointer;
-    }
-
-    void deallocate ( pointer p, std::size_t ) noexcept { }
-
-    private:
-
-    pointer m_pointer = nullptr;
-};
-
-template <class T, class U>
-bool operator == ( relocator<T> const&, relocator<U> const& ) noexcept {
-    return true;
-}
-
-template <class T, class U>
-bool operator != ( relocator<T> const& x, relocator<U> const& y ) noexcept {
-    return not ( x == y );
-}
-
-
 using cost_type = fluent::NamedType<std::int32_t, struct cost_type_s>;
 
 namespace std {
